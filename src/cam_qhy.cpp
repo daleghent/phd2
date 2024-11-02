@@ -313,17 +313,19 @@ QHYCameraDlg::QHYCameraDlg() : wxDialog(wxGetApp().GetTopWindow(), wxID_ANY, wxE
     SetSizeHints(wxDefaultSize, wxDefaultSize);
 
     wxBoxSizer *cameraParamsSizer = new wxBoxSizer(wxVERTICAL);
-    wxStaticBoxSizer *cameraModeSizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, _("Camera Mode")), wxHORIZONTAL);
+    wxStaticBoxSizer *cameraModeSizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, _("Camera Mode")), wxVERTICAL);
 
+    wxBoxSizer *bppSelectionSizer = new wxBoxSizer(wxHORIZONTAL);
     m_bpp8 = new wxRadioButton(this, wxID_ANY, _("8-bit"));
     m_bpp16 = new wxRadioButton(this, wxID_ANY, _("16-bit"));
 
-    const char *modeHint = "Camera must be reconnected after changing the mode";
-    m_bpp8->SetToolTip(modeHint);
-    m_bpp16->SetToolTip(modeHint);
+    bppSelectionSizer->Add(m_bpp8, 0, wxALL, 5);
+    bppSelectionSizer->Add(m_bpp16, 0, wxALL, 5);
 
-    cameraModeSizer->Add(m_bpp8, 0, wxALL, 5);
-    cameraModeSizer->Add(m_bpp16, 0, wxALL, 5);
+    cameraModeSizer->Add(bppSelectionSizer, 0, wxEXPAND, 5);
+
+    wxStaticText *m_bppAdvice = new wxStaticText(this, wxID_ANY, _("Camera must be reconnected to change mode"));
+    cameraModeSizer->Add(m_bppAdvice, 0, wxEXPAND, 5);
 
     cameraParamsSizer->Add(cameraModeSizer, 0, wxEXPAND, 5);
 
