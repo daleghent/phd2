@@ -367,9 +367,9 @@ QHYCameraDlg::QHYCameraDlg() : wxDialog(wxGetApp().GetTopWindow(), wxID_ANY, wxE
     cameraOptionsSizer->Add(m_ampnrCb, 0, wxALL, 5);
 
     m_qhy5iiSt4ModeCb = new wxCheckBox(this, wxID_ANY, _("Disable 12bit ADC to enable ST-4 port"));
-    m_qhy5iiSt4ModeCb->SetToolTip(
-        _("The ST-4 port on a QHY5LII-M camera is enabled only when the sensor's 12 bit ADC output is disabled. This limits the "
-          "camera's bit mode to 8 bits."));
+    m_qhy5iiSt4ModeCb->SetToolTip(_(
+        "The ST-4 port on a QHY5LII-M camera is enabled only when the sensor's 12 bit ADC output is disabled. This limits the "
+        "camera's bit mode to 8 bits."));
     cameraOptionsSizer->Add(m_qhy5iiSt4ModeCb, 0, wxALL, 5);
 
     m_rownrCb = new wxCheckBox(this, wxID_ANY, _("Row noise reduction"));
