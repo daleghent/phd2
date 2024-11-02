@@ -409,11 +409,16 @@ void Camera_QHY::ShowPropertyDialog()
 
         dlg.SetTitle(wxString::Format("%s Settings", camShortName));
 
-        int value = pConfig->Profile.GetInt(CONFIG_PATH_QHY_BPP, m_bpp);
-        if (value == 8)
+        if (m_bpp == 8 || !m_has16bitMode || m_qhy5iiSt4Mode)
             dlg.m_bpp8->SetValue(true);
         else
             dlg.m_bpp16->SetValue(true);
+
+        if (!m_has16bitMode || m_qhy5iiSt4Mode)
+        {
+            dlg.m_bpp8->Enable(false);
+            dlg.m_bpp16->Enable(false);
+        }
 
         dlg.m_gainText->SetLabel(wxString::Format("Gain: %d (min: %g, max: %g)", GetQhyGain(), m_gainMin, m_gainMax));
 
