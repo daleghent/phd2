@@ -45,6 +45,7 @@
 
 # define CONFIG_PATH_QHY_BPP "/camera/QHY/bpp"
 # define CONFIG_PATH_QHY_AMPNR "/camera/QHY/ampnr"
+# define CONFIG_PATH_QHY_QHY5IIST4MODE "/camera/QHY/qhy5iist4mode"
 # define CONFIG_PATH_QHY_ROWNR "/camera/QHY/rownr"
 # define CONFIG_PATH_QHY_OFFSET "/camera/QHY/offset"
 # define CONFIG_PATH_QHY_HIGHGAIN "/camera/QHY/highgain"
@@ -52,6 +53,7 @@
 
 # define DEFAULT_BPP 16
 # define DEFAULT_AMPNR true
+# define DEFAULT_QHY5IIST4MODE false
 # define DEFAULT_ROWNR true
 # define DEFAULT_OFFSET 0
 # define DEFAULT_HIGHGAIN false
@@ -96,6 +98,9 @@ class Camera_QHY : public GuideCamera
     bool m_rownr;
     bool m_hasHighGain;
     bool m_highGain;
+    bool m_has16bitMode;
+    bool m_hasQhy5iiSt4Mode;
+    bool m_qhy5iiSt4Mode;
     double coolerSetpoint;
 
 public:
@@ -127,6 +132,7 @@ protected:
     bool SetQhyOffset(int offset);
     bool SetQhyUsbTraffic(int usbTraffic);
     bool SetQhyAmpNoiseReduction(bool enable);
+    bool SetQhyQhy5iiSt4Mode(bool enable);
     bool SetQhyRowNoiseReduction(bool enable);
     bool SetQhyHighGainMode(bool enable);
 };
@@ -242,6 +248,11 @@ Camera_QHY::Camera_QHY()
     m_usbTrafficMax = 0;
     m_usbTrafficStep = 0;
     m_hasUsbTraffic = false;
+    m_has16bitMode = false;
+
+    m_hasQhy5iiSt4Mode = false;
+    m_qhy5iiSt4Mode = pConfig->Profile.GetBoolean(CONFIG_PATH_QHY_QHY5IIST4MODE, DEFAULT_QHY5IIST4MODE);
+
     m_usbTraffic = pConfig->Profile.GetInt(CONFIG_PATH_QHY_USBTRAFFIC, DEFAULT_USBTRAFFIC);
 
     m_hasAmpnr = false;
@@ -302,6 +313,7 @@ struct QHYCameraDlg : public wxDialog
     wxSpinCtrl *m_offsetSpinner;
     wxSpinCtrl *m_usbTrafficSpinner;
     wxCheckBox *m_ampnrCb;
+    wxCheckBox *m_qhy5iiSt4ModeCb;
     wxCheckBox *m_rownrCb;
     wxCheckBox *m_highGainCb;
 
@@ -353,6 +365,12 @@ QHYCameraDlg::QHYCameraDlg() : wxDialog(wxGetApp().GetTopWindow(), wxID_ANY, wxE
 
     m_ampnrCb = new wxCheckBox(this, wxID_ANY, _("Amplifier noise reduction"));
     cameraOptionsSizer->Add(m_ampnrCb, 0, wxALL, 5);
+
+    m_qhy5iiSt4ModeCb = new wxCheckBox(this, wxID_ANY, _("Disable 12bit ADC to enable ST-4 port"));
+    m_qhy5iiSt4ModeCb->SetToolTip(
+        _("The ST-4 port on a QHY5LII-M camera is enabled only when the sensor's 12 bit ADC output is disabled. This limits the "
+          "camera's bit mode to 8 bits."));
+    cameraOptionsSizer->Add(m_qhy5iiSt4ModeCb, 0, wxALL, 5);
 
     m_rownrCb = new wxCheckBox(this, wxID_ANY, _("Row noise reduction"));
     cameraOptionsSizer->Add(m_rownrCb, 0, wxALL, 5);
@@ -412,6 +430,10 @@ void Camera_QHY::ShowPropertyDialog()
         dlg.m_ampnrCb->SetValue(m_ampnr);
         dlg.m_ampnrCb->Enable(m_hasAmpnr);
 
+        dlg.m_qhy5iiSt4ModeCb->SetValue(m_qhy5iiSt4Mode);
+        if (!m_hasQhy5iiSt4Mode)
+            dlg.m_qhy5iiSt4ModeCb->Hide();
+
         dlg.m_rownrCb->SetValue(m_rownr);
         dlg.m_rownrCb->Enable(m_hasRownr);
 
@@ -431,6 +453,9 @@ void Camera_QHY::ShowPropertyDialog()
 
             m_ampnr = dlg.m_ampnrCb->GetValue();
             pConfig->Profile.SetBoolean(CONFIG_PATH_QHY_AMPNR, m_ampnr);
+
+            m_qhy5iiSt4Mode = dlg.m_qhy5iiSt4ModeCb->GetValue();
+            pConfig->Profile.SetBoolean(CONFIG_PATH_QHY_QHY5IIST4MODE, m_qhy5iiSt4Mode);
 
             m_rownr = dlg.m_rownrCb->GetValue();
             pConfig->Profile.SetBoolean(CONFIG_PATH_QHY_ROWNR, m_rownr);
@@ -644,6 +669,16 @@ bool Camera_QHY::Connect(const wxString& camId)
         m_hasAmpnr = false;
     }
 
+    if (IsQHYCCDControlAvailable(m_camhandle, CAM_QHY5II_GUIDE_MODE) == QHYCCD_SUCCESS)
+    {
+        m_hasQhy5iiSt4Mode = true;
+        SetQhyQhy5iiSt4Mode(m_hasQhy5iiSt4Mode);
+    }
+    else
+    {
+        m_hasQhy5iiSt4Mode = false;
+    }
+
     if (IsQHYCCDControlAvailable(m_camhandle, CONTROL_ROWNOISERE) == QHYCCD_SUCCESS)
     {
         m_hasRownr = true;
@@ -672,6 +707,21 @@ bool Camera_QHY::Connect(const wxString& camId)
         CloseQHYCCD(m_camhandle);
         m_camhandle = 0;
         return CamConnectFailed(_("Failed to get camera chip info"));
+    }
+
+    if (IsQHYCCDControlAvailable(m_camhandle, CAM_16BITS) == QHYCCD_SUCCESS)
+    {
+        m_has16bitMode = true;
+    }
+    else
+    {
+        m_has16bitMode = false;
+
+        if (m_bpp == 16)
+        {
+            m_bpp = 8;
+            pConfig->Profile.SetInt(CONFIG_PATH_QHY_BPP, m_bpp);
+        }
     }
 
     ret = SetQHYCCDBitsMode(m_camhandle, (uint32_t) m_bpp);
@@ -1269,6 +1319,41 @@ bool Camera_QHY::SetQhyRowNoiseReduction(bool enable)
         else
         {
             Debug.Write(wxString::Format("QHY: set CONTROL_ROWNOISERE %g\n", mode));
+        }
+    }
+
+    return rv == QHYCCD_SUCCESS;
+}
+
+bool Camera_QHY::SetQhyQhy5iiSt4Mode(bool enable)
+{
+    uint32_t rv = QHYCCD_ERROR;
+
+    if (!m_hasQhy5iiSt4Mode)
+    {
+        Debug.Write("QHY: QH5LII-M ST-4 port mode is not available\n");
+    }
+    else
+    {
+        double mode = enable ? QHYCCD_ON : QHYCCD_OFF;
+        if ((rv = SetQHYCCDParam(m_camhandle, CAM_QHY5II_GUIDE_MODE, mode) != QHYCCD_SUCCESS))
+        {
+            Debug.Write("QHY: failed to set CAM_QHY5II_GUIDE_MODE\n");
+        }
+        else
+        {
+            Debug.Write(wxString::Format("QHY: set CAM_QHY5II_GUIDE_MODE %g\n", mode));
+
+            // QHY5II-M ST-4 port mode is mutually exclusive with 16 bit mode
+            if (enable)
+            {
+                if (m_bpp == 16)
+                {
+                    m_bpp = 8;
+                    pConfig->Profile.SetInt(CONFIG_PATH_QHY_BPP, m_bpp);
+                    Debug.Write("QHY: forcing 8 bit output mode\n");
+                }
+            }
         }
     }
 
